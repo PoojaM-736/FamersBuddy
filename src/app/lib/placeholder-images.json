@@ -1,0 +1,41 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "hero-farm",
+      "description": "Lush green Indian farmland with a sunrise",
+      "imageUrl": "https://picsum.photos/seed/indianfarm/1200/600",
+      "imageHint": "indian agriculture"
+    },
+    {
+      "id": "crop-mango",
+      "description": "Fresh Alphonso mangoes",
+      "imageUrl": "https://picsum.photos/seed/mango/600/400",
+      "imageHint": "mango fruit"
+    },
+    {
+      "id": "crop-rice",
+      "description": "Paddy field with basmati rice",
+      "imageUrl": "https://picsum.photos/seed/rice/600/400",
+      "imageHint": "paddy field"
+    },
+    {
+      "id": "crop-onion",
+      "description": "Red onions harvest",
+      "imageUrl": "https://picsum.photos/seed/onion/600/400",
+      "imageHint": "red onions"
+    },
+    {
+      "id": "crop-okra",
+      "description": "Fresh green ladyfinger okra",
+      "imageUrl": "https://picsum.photos/seed/okra/600/400",
+      "imageHint": "okra vegetable"
+    },
+    {
+      "id": "farmer-working",
+      "description": "Indian farmer inspecting crops",
+      "imageUrl": "https://picsum.photos/seed/indianfarmer/600/400",
+      "imageHint": "indian farmer"
+    }
+  ]
+}
