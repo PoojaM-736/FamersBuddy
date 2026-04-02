@@ -1,0 +1,201 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * FARMERSBUDDY SECURITY RULES
+     * 
+     * Core Philosophy:
+     * This ruleset implements a strict Ownership-Based Access Control model. User data is organized
+     * hierarchically under /users/{userId}, ensuring that individual farmers and buyers have 
+     * exclusive access to their private data, profiles, and management records.
+     * 
+     * Data Structure:
+     * - /users/{userId}: The root for all user-specific data (Profiles, Farms, Messages, Notifications).
+     * - /crops & /marketPrices: Global master data collections, read-only for standard users.
+     * - /cropListings: A marketplace collection, publicly readable for discovery but writable only by the owner.
+     * 
+     * Key Security Decisions:
+     * 1. Authorization Independence: Critical IDs (userId, farmerId, farmId) are denormalized into 
+     *    documents to allow rules to validate access without expensive get() calls.
+     * 2. Message Duplication: Messages are stored in both the sender's and receiver's user trees. 
+     *    This simplifies listing messages and ensures a user only ever accesses their own data path.
+     * 3. Prototyping Flexibility: Rules focus on "Who" can access data and "Relational Integrity" 
+     *    (IDs matching paths) rather than strict schema/type validation of content fields.
+     * 4. Relational Consistency: On creation, documents must include a field that matches the 
+     *    parent userId or farmerId in the path.
+     */
+
+    // --- HELPER FUNCTIONS ---
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Rules for the core User document.
+     * @path /users/{userId}
+     * @allow (create) if auth.uid matches path ID.
+     * @deny (update) if trying to change the document ID.
+     * @principle Pattern 4: Self-Creation.
+     */
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description Farmer-specific profile information.
+       * @path /users/{userId}/farmerProfile/{profileId}
+       */
+      match /farmerProfile/{profileId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Buyer-specific profile information.
+       * @path /users/{userId}/buyerProfile/{profileId}
+       */
+      match /buyerProfile/{profileId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Farms owned by the farmer.
+       * @path /users/{farmerId}/farms/{farmId}
+       */
+      match /farms/{farmId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.farmerId == userId;
+        allow update: if isExistingOwner(userId) && request.resource.data.farmerId == resource.data.farmerId;
+        allow delete: if isExistingOwner(userId);
+
+        /**
+         * @description Crop fields within a specific farm.
+         */
+        match /cropFields/{cropFieldId} {
+          allow get, list: if isOwner(userId);
+          allow create: if isOwner(userId) && request.resource.data.farmId == farmId;
+          allow update: if isExistingOwner(userId) && request.resource.data.farmId == resource.data.farmId;
+          allow delete: if isExistingOwner(userId);
+
+          // Deeply nested resources follow the same ownership pattern
+          match /soilTests/{id} {
+            allow get, list: if isOwner(userId);
+            allow create: if isOwner(userId);
+            allow update, delete: if isExistingOwner(userId);
+          }
+          match /diseaseIncidents/{id} {
+            allow get, list: if isOwner(userId);
+            allow create: if isOwner(userId);
+            allow update, delete: if isExistingOwner(userId);
+          }
+          match /irrigationAdvice/{id} {
+            allow get, list: if isOwner(userId);
+            allow create: if isOwner(userId);
+            allow update, delete: if isExistingOwner(userId);
+          }
+          match /fertilizerRecommendations/{id} {
+            allow get, list: if isOwner(userId);
+            allow create: if isOwner(userId);
+            allow update, delete: if isExistingOwner(userId);
+          }
+          match /pesticideRecommendations/{id} {
+            allow get, list: if isOwner(userId);
+            allow create: if isOwner(userId);
+            allow update, delete: if isExistingOwner(userId);
+          }
+        }
+
+        match /weatherForecasts/{id} {
+          allow get, list: if isOwner(userId);
+          allow create: if isOwner(userId);
+          allow update, delete: if isExistingOwner(userId);
+        }
+      }
+
+      /**
+       * @description AI-driven crop planting recommendations for the farmer.
+       * @path /users/{userId}/cropRecommendations/{id}
+       */
+      match /cropRecommendations/{id} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.farmerId == userId;
+        allow update, delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description User-specific copy of messages (sender or receiver).
+       * @path /users/{userId}/messages/{messageId}
+       */
+      match /messages/{messageId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isExistingOwner(userId);
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Personalized system alerts and notifications.
+       * @path /users/{userId}/notifications/{notificationId}
+       */
+      match /notifications/{notificationId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isExistingOwner(userId);
+        allow delete: if isExistingOwner(userId);
+      }
+    }
+
+    /**
+     * @description Master data for crops available in the system.
+     * @path /crops/{cropId}
+     * @allow (get, list) if any user is signed in.
+     * @deny (write) Restricted to administrators (external process).
+     */
+    match /crops/{cropId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Implement admin role check
+    }
+
+    /**
+     * @description Publicly available market price data.
+     * @path /marketPrices/{marketPriceId}
+     */
+    match /marketPrices/{marketPriceId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Implement admin/AI-service role check
+    }
+
+    /**
+     * @description Marketplace for crop offerings.
+     * @path /cropListings/{cropListingId}
+     * @allow (get, list) for all signed-in users (Buyers discovery).
+     * @allow (create) if farmerId in data matches auth UID.
+     * @principle Pattern 5: Public Read with Owner-Only Writes.
+     */
+    match /cropListings/{cropListingId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.farmerId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.farmerId) && request.resource.data.farmerId == resource.data.farmerId;
+      allow delete: if isExistingOwner(resource.data.farmerId);
+    }
+  }
+}
